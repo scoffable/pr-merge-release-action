@@ -1,0 +1,83 @@
+name: 'Increment Release Version'
+description: 'Automatically increment version upon merging to main/master branch'
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: true
+  pr_title:
+    description: "Title of the merged PR"
+    required: true
+  trunk_branch:
+    description: "Name of the trunk branch (e.g., main or master)."
+    required: false
+    default: "master"
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Get latest release
+      shell: "bash"
+      id: get_latest
+      run: |
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        echo "latest_tag=$latest_tag" >> $GITHUB_ENV
+
+    - name: Determine new version
+      shell: "bash"
+      id: increment
+      run: |
+        latest_tag="${{ env.latest_tag }}"
+        major=$(echo $latest_tag | cut -d'.' -f1)
+        minor=$(echo $latest_tag | cut -d'.' -f2)
+        patch=$(echo $latest_tag | cut -d'.' -f3)
+
+        PR_TITLE="${{ inputs.pr_title }}"
+
+        if [[ "$PR_TITLE" == "[major]"* ]]; then
+          major=$((major + 1))
+          minor=0
+          patch=0
+        elif [[ "$PR_TITLE" == "[minor]"* ]]; then
+          minor=$((minor + 1))
+          patch=0
+        else
+          # Default to minor increment or patch if [patch] in title
+          if [[ "$PR_TITLE" == "[patch]"* ]]; then
+            patch=$((patch + 1))
+          else
+            minor=$((minor + 1))
+            patch=0
+          fi
+        fi
+
+        new_version="$major.$minor.$patch"
+        echo "new_version=$new_version" >> $GITHUB_ENV
+
+    # // TODO slack release notification
+
+    - name: Increment pom.xml
+      shell: "bash"
+      run: |
+        # Update and commit `pom.xml`
+       if [ -f "pom.xml" ]; then
+        echo "Updating pom.xml with prerelease version: $PRE_RELEASE_VERSION"
+        sed -i '' "s/<version>.*<\/version>/<version>$PRE_RELEASE_VERSION<\/version>" pom.xml
+        git add pom.xml
+        git commit -m "Update pom.xml to $PRE_RELEASE_VERSION"
+       fi
+
+    - name: Create a GitHub release
+      shell: "bash"
+      run: |
+        
+        NEW_VERSION=${{ env.new_version }}
+        GITHUB_TOKEN=${{ inputs.token }}
+        TRUNK_BRANCH=${{ inputs.trunk_branch }}
+        
+        # Authenticate and create the prerelease using GitHub CLI
+        echo "Authenticating with GitHub CLI using GITHUB_TOKEN..."
+        echo "$GITHUB_TOKEN" | gh auth login --with-token
+
+        echo "Creating prerelease with version: $NEW_VERSION"
+        gh release create "$NEW_VERSION" --notes "Automated release: $NEW_VERSION" --target "TRUNK_BRANCH"
