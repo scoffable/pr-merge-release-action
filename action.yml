@@ -23,7 +23,7 @@ runs:
       shell: "bash"
       id: get_latest
       run: |
-        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` | sed 's/^v//')
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
     - name: Determine new version
