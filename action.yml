@@ -53,14 +53,12 @@ runs:
             patch=$((patch + 1))
           else
             minor=$((minor + 1))
-            PR_TITLE="[minor] $PR_TITLE"
             patch=0
           fi
         fi
 
         new_version="$major.$minor.$patch"
         echo "new_version=$new_version" >> $GITHUB_ENV
-        echo "pr_title=$PR_TITLE >> $GITHUB_ENV
 
     # // TODO slack release notification
 
@@ -94,4 +92,4 @@ runs:
         token: ${{ inputs.release_pat }}
         tag: ${{ env.new_version }}
         commit: ${{ inputs.trunk_branch }}
-        body: ${{ env.pr_title }} (${{ inputs.pr_url }})
+        body: ${{ inputs.pr_title }} (${{ inputs.pr_url }})
