@@ -20,8 +20,8 @@ inputs:
     description: "Name of the trunk branch (e.g., main or master)."
     required: false
     default: "master"
-  slack-github-token:
-    description: "the github token to use when calling the Slack notification action"
+  slack-webhook-url:
+    description: "the webhook URL to use when calling the Slack notification action"
     required: false
 
 runs:
