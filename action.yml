@@ -102,8 +102,16 @@ runs:
         tag: ${{ env.new_version }}
         commit: ${{ inputs.trunk_branch }}
         body: ${{ inputs.pr_title }} (${{ inputs.pr_url }})
-#
-#    - name: Announce release
+
+    - name: Announce release
+      uses: 8398a7/action-slack@v3
+      with:
+        text: 'Released `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}>): ${{ inputs.pr_title }}'
+        fields: ''
+      env:
+        GITHUB_TOKEN: ${{ inputs.slack-github-token }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
 #      uses: slackapi/slack-github-action@v2.0.0
 #      if: ${{ success() && inputs.slack-github-token != '' }}
 #      with:
