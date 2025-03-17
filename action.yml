@@ -13,10 +13,16 @@ inputs:
   pr_url:
     description: "URL to the merged PR"
     required: true
+  repository:
+    description: "The repository of the merged PR"
+    required: true
   trunk_branch:
     description: "Name of the trunk branch (e.g., main or master)."
     required: false
     default: "master"
+  slack-github-token:
+    description: "the github token to use when calling the Slack notification action"
+    required: false
 
 runs:
   using: "composite"
@@ -93,3 +99,13 @@ runs:
         tag: ${{ env.new_version }}
         commit: ${{ inputs.trunk_branch }}
         body: ${{ inputs.pr_title }} (${{ inputs.pr_url }})
+#
+#    - name: Announce release
+#      uses: slackapi/slack-github-action@v2.0.0
+#      if: ${{ success() && inputs.slack-github-token != '' }}
+#      with:
+#        method: chat.postMessage
+#        token: ${{ inputs.slack-github-token }}
+#        payload: |
+#          channel: #dev
+#          text: "Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}>): ${{ inputs.pr_title }}"
