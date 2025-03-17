@@ -108,6 +108,7 @@ runs:
       with:
         text: 'Released `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}>): ${{ inputs.pr_title }}'
         fields: ''
+        status: ${{ job.status }}
       env:
         GITHUB_TOKEN: ${{ inputs.slack-github-token }}
         SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
