@@ -110,13 +110,4 @@ runs:
         fields: ''
       env:
         GITHUB_TOKEN: ${{ inputs.slack-github-token }}
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-#      uses: slackapi/slack-github-action@v2.0.0
-#      if: ${{ success() && inputs.slack-github-token != '' }}
-#      with:
-#        method: chat.postMessage
-#        token: ${{ inputs.slack-github-token }}
-#        payload: |
-#          channel: #dev
-#          text: "Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}>): ${{ inputs.pr_title }}"
+        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
