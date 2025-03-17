@@ -2,7 +2,7 @@ name: 'Increment Release Version'
 description: 'Automatically increment version upon merging to main/master branch'
 inputs:
   github_token:
-    description: "Normal gitHub Token for authentication"
+    description: "Normal GitHub Token for authentication"
     required: true
   release_pat:
     description: "Personal access token for creating a release, so github actions run"
@@ -20,8 +20,11 @@ inputs:
     description: "Name of the trunk branch (e.g., main or master)."
     required: false
     default: "master"
+  slack-github-token:
+    description: "The github token to use when calling the Slack notification action"
+    required: false
   slack-webhook-url:
-    description: "the webhook URL to use when calling the Slack notification action"
+    description: "The webhook URL to use when calling the Slack notification action"
     required: false
 
 runs:
