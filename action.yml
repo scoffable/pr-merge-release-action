@@ -106,7 +106,7 @@ runs:
     - name: Announce release
       uses: 8398a7/action-slack@v3
       with:
-        text: 'Released `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}>): ${{ inputs.pr_title }}'
+        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}|PR>): ${{ inputs.pr_title }}'
         fields: ''
         status: ${{ job.status }}
       env:
