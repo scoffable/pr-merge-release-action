@@ -47,6 +47,9 @@ runs:
         minor=$(echo $latest_tag | cut -d'.' -f2)
         patch=$(echo $latest_tag | cut -d'.' -f3)
 
+        # This avoids a bunch of issues when PR titles contain single or double quotes
+        eval "PR_TITLE=${{ toJson(inputs.pr_title) }}"
+
         PR_TITLE=${{ inputs.pr_title }}
 
         if [[ "$PR_TITLE" == "[major]"* ]]; then
