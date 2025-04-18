@@ -47,7 +47,7 @@ runs:
         minor=$(echo $latest_tag | cut -d'.' -f2)
         patch=$(echo $latest_tag | cut -d'.' -f3)
 
-        PR_TITLE="${{ inputs.pr_title }}"
+        PR_TITLE=${{ inputs.pr_title }}
 
         if [[ "$PR_TITLE" == "[major]"* ]]; then
           major=$((major + 1))
