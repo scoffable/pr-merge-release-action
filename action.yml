@@ -31,9 +31,69 @@ runs:
   using: "composite"
   steps:
 
+    - name: Decide whether this event releases
+      shell: "bash"
+      id: gate
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        PR_MERGED: ${{ github.event.pull_request.merged }}
+        PR_BASE: ${{ github.event.pull_request.base.ref }}
+        TRUNK: ${{ inputs.trunk_branch }}
+      run: |
+        # Merging a stack of PRs closes every PR in it with one merge commit that sits on the trunk, so the
+        # stacked PRs' closed events look like trunk merges to any ref check in the calling workflow. Only
+        # the PR whose own base is the trunk releases; the collect step below names the rest of the stack.
+        # Events other than pull_request pass through, since the caller chose to run this action on them.
+        if [ "$EVENT_NAME" != "pull_request" ] || { [ "$PR_MERGED" = "true" ] && [ "$PR_BASE" = "$TRUNK" ]; }; then
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Not releasing: the PR is not a merge into $TRUNK (merged=$PR_MERGED, base=$PR_BASE)"
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Collect every PR merged by this commit
+      shell: "bash"
+      id: merged-prs
+      if: steps.gate.outputs.proceed == 'true'
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPOSITORY: ${{ inputs.repository }}
+        PR_TITLE: ${{ inputs.pr_title }}
+        PR_URL: ${{ inputs.pr_url }}
+      run: |
+        # A collapsed stack merges several PRs as one commit and only the trunk-based PR passes the gate, so
+        # the release must name the stacked PRs too or they vanish from the notes.
+        extras="[]"
+        if [ -n "$MERGE_SHA" ]; then
+          extras=$(gh api "repos/$REPOSITORY/pulls?state=closed&sort=updated&direction=desc&per_page=50" \
+            --jq "[.[] | select(.merge_commit_sha == \"$MERGE_SHA\" and .number != $PR_NUMBER)] | sort_by(.number)") \
+            || { echo "Could not list merged PRs; the release will name only the triggering PR"; extras="[]"; }
+        fi
+        if [ "$(echo "$extras" | jq length)" -eq 0 ]; then
+          title="$PR_TITLE"
+          url="$PR_URL"
+        else
+          echo "Also merged by $MERGE_SHA: $(echo "$extras" | jq -r '[.[].number | tostring] | join(", ")')"
+          # The release body renders as "<title> (<url>)", so the last line's URL goes in the url output and
+          # every earlier line carries its own. The triggering PR stays first so its [major]/[minor]/[patch]
+          # prefix still picks the version bump.
+          title=$(echo "$extras" | jq -r --arg t "$PR_TITLE" --arg u "$PR_URL" \
+            '([ "\($t) (\($u))" ] + [ .[:-1][] | "\(.title) (\(.html_url))" ] + [ .[-1].title ]) | join("\n")')
+          url=$(echo "$extras" | jq -r '.[-1].html_url')
+        fi
+        {
+          echo "title<<PR_LIST_EOF"
+          echo "$title"
+          echo "PR_LIST_EOF"
+          echo "url=$url"
+        } >> "$GITHUB_OUTPUT"
+
     - name: Get latest release
       shell: "bash"
       id: get_latest
+      if: steps.gate.outputs.proceed == 'true'
       run: |
         latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` | sed 's/^v//')
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
@@ -41,6 +101,7 @@ runs:
     - name: Determine new version
       shell: "bash"
       id: increment
+      if: steps.gate.outputs.proceed == 'true'
       run: |
         latest_tag="${{ env.latest_tag }}"
         major=$(echo $latest_tag | cut -d'.' -f1)
@@ -75,22 +136,23 @@ runs:
 
     - name: Increment pom.xml
       shell: "bash"
+      if: steps.gate.outputs.proceed == 'true'
       run: |
-        
+
         NEW_VERSION=${{ env.new_version }}
         TRUNK_BRANCH=${{ inputs.trunk_branch }}
-        
+
         # Update and commit `pom.xml`
         if [ -f "pom.xml" ]; then
           echo "Updating pom.xml with new version: $NEW_VERSION"
           # mvn versions:set -DnewVersion="$NEW_VERSION" -DgenerateBackupPoms=false
           # This is a lot faster than the above command
           sed -i '0,/<version>[^<]*<\/version>/s//<version>'"$NEW_VERSION"'<\/version>/' pom.xml
-        
+
           echo "Setting git config"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-        
+
           echo "Adding pom.xml to git"
           git add pom.xml
           echo "Committing changes"
@@ -101,16 +163,18 @@ runs:
 
     - name: Create a Release
       uses: ncipollo/release-action@v1
+      if: steps.gate.outputs.proceed == 'true'
       with:
         token: ${{ inputs.release_pat }}
         tag: ${{ env.new_version }}
         commit: ${{ inputs.trunk_branch }}
-        body: ${{ inputs.pr_title }} (${{ inputs.pr_url }})
+        body: ${{ steps.merged-prs.outputs.title }} (${{ steps.merged-prs.outputs.url }})
 
     - name: Announce release
       uses: 8398a7/action-slack@v3
+      if: steps.gate.outputs.proceed == 'true'
       with:
-        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ inputs.pr_url }}|PR>): ${{ inputs.pr_title }}'
+        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ steps.merged-prs.outputs.url }}|PR>): ${{ steps.merged-prs.outputs.title }}'
         fields: ''
         status: ${{ job.status }}
       env:
