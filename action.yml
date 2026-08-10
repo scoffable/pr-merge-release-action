@@ -71,9 +71,12 @@ runs:
             --jq "[.[] | select(.merge_commit_sha == \"$MERGE_SHA\" and .number != $PR_NUMBER)] | sort_by(.number)") \
             || { echo "Could not list merged PRs; the release will name only the triggering PR"; extras="[]"; }
         fi
+        # Slack gets its own rendering: a single PR keeps the message's old shape, a stack gets one
+        # bulleted line per PR.
         if [ "$(echo "$extras" | jq length)" -eq 0 ]; then
           title="$PR_TITLE"
           url="$PR_URL"
+          slack=" (<$PR_URL|PR>): $PR_TITLE"
         else
           echo "Also merged by $MERGE_SHA: $(echo "$extras" | jq -r '[.[].number | tostring] | join(", ")')"
           # The release body renders as "<title> (<url>)", so the last line's URL goes in the url output and
@@ -82,12 +85,17 @@ runs:
           title=$(echo "$extras" | jq -r --arg t "$PR_TITLE" --arg u "$PR_URL" \
             '([ "\($t) (\($u))" ] + [ .[:-1][] | "\(.title) (\(.html_url))" ] + [ .[-1].title ]) | join("\n")')
           url=$(echo "$extras" | jq -r '.[-1].html_url')
+          slack=$(echo "$extras" | jq -r --arg t "$PR_TITLE" --arg u "$PR_URL" --arg n "$PR_NUMBER" \
+            '([ ":\n• <\($u)|#\($n)> \($t)" ] + [ .[] | "\n• <\(.html_url)|#\(.number)> \(.title)" ]) | join("")')
         fi
         {
           echo "title<<PR_LIST_EOF"
           echo "$title"
           echo "PR_LIST_EOF"
           echo "url=$url"
+          echo "slack<<PR_LIST_EOF"
+          echo "$slack"
+          echo "PR_LIST_EOF"
         } >> "$GITHUB_OUTPUT"
 
     - name: Get latest release
@@ -174,7 +182,7 @@ runs:
       uses: 8398a7/action-slack@v3
       if: steps.gate.outputs.proceed == 'true'
       with:
-        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}` (<${{ steps.merged-prs.outputs.url }}|PR>): ${{ steps.merged-prs.outputs.title }}'
+        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}`${{ steps.merged-prs.outputs.slack }}'
         fields: ''
         status: ${{ job.status }}
       env:
