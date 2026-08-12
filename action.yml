@@ -26,6 +26,10 @@ inputs:
   slack-webhook-url:
     description: "The webhook URL to use when calling the Slack notification action"
     required: false
+  slack-suffix:
+    description: "Extra text appended to the Slack message, e.g. per-repo update instructions. Start it with a newline for its own line."
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -182,7 +186,7 @@ runs:
       uses: 8398a7/action-slack@v3
       if: steps.gate.outputs.proceed == 'true'
       with:
-        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}`${{ steps.merged-prs.outputs.slack }}'
+        text: 'Releasing `${{ inputs.repository }}` `${{ env.new_version }}`${{ steps.merged-prs.outputs.slack }}${{ inputs.slack-suffix }}'
         fields: ''
         status: ${{ job.status }}
       env:
