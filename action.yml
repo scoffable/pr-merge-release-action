@@ -107,7 +107,12 @@ runs:
       id: get_latest
       if: steps.gate.outputs.proceed == 'true'
       run: |
-        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1` | sed 's/^v//')
+        # Highest release tag by version order. Prerelease tags (1.2.3-branch.4)
+        # are ignored and commit dates play no part, so neither a prerelease nor
+        # a rebase can derail the version sequence. The v prefix strips before
+        # sorting: v compares after digits, so mixed v-and-bare tag histories
+        # would otherwise rank every old v-tag above every modern one.
+        latest_tag=$(git tag --list | sed 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
         echo "latest_tag=$latest_tag" >> $GITHUB_ENV
 
     - name: Determine new version
